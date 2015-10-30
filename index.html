@@ -1,0 +1,155 @@
+<html>
+<script src="http://127.0.0.1:5001/socket.io/socket.io.js"></script> 
+<script src="jquery.js"></script>
+
+<div class="status">CONNECTING...</div>
+
+<div class="arrows">
+    <div class="arrow left">LEFT</div>
+    <div class="arrow back">BACK</div>
+    <div class="arrow front">FRONT</div>
+    <div class="arrow right">RIGHT</div>
+</div>
+
+<div class="updown">
+    <div class="up">UP (z)</div>
+    <div class="down">DOWN (x)</div>
+</div>
+
+<div class="claw open">OPEN</div>
+
+<style> 
+    body { 
+        background:#000;
+    }
+    .status {
+        padding:10px;
+        background:limegreen;
+        color:black;
+        font-family:courier;
+        width:200px;
+        text-transform:uppercase;
+    }
+    .status.connecting {
+        text-decoration:blink
+    }
+    .arrows {
+        position:absolute;
+        top:200px;
+        left:300px;
+    }
+    .arrow, .updown div, .claw {
+        height: 100px;
+        width:100px;
+        line-height:100px;
+        text-transform:uppercase;
+        text-align:center;
+        border:1px solid limegreen;
+        position:absolute;
+        font-family:courier;
+        color:limegreen;
+    }
+    .arrow.active, .updown div.active, .claw.closed {
+        background:limegreen;
+        color:black;
+    }
+    .arrow.back    { top:0;left:100px; }
+    .arrow.front   { top:200px; left:100px;}
+    .arrow.left    { top:100px; }
+    .arrow.right   { top:100px;left:200px; }
+
+    .claw {
+        position:absolute;
+        top:300px;
+        left:400px;
+    }
+
+
+    .updown {
+        position:absolute;
+        left:650px;
+        top:200px;
+    }
+    .updown div {
+        height:150px;
+        line-height:150px;
+    }
+    .updown .down {
+        top:150px;
+    }
+
+</style>
+
+<script> 
+    var socket  = new io.connect("http://127.0.0.1:5001")
+    var connection = $(".status")
+
+    socket.on('connect', function () {
+        console.log("connected to claw") 
+        connection.text("connected")
+    });
+
+    socket.on("reconnect", function(){
+        connection.text("reconnecting")
+
+    })
+
+    socket.on('log', function (msg) {
+        console.log(msg)
+    });
+
+    socket.on('disconnect', function () {
+        console.log("disconnected")
+        connection.text("disconnected")
+    });
+
+    /* keycodes are:
+
+    left = 37
+    up = 38
+    right = 39
+    down = 40*/
+    //90,88
+
+    var keycodes = {
+        "37" : "left",
+        "38" : "back",
+        "39" : "right",
+        "40" : "front",
+        "90" : "up",
+        "88" : "down"
+    },
+    busy = false
+
+    var open = false , claw = $(".claw")
+    function toggleClaw(){
+        socket.emit("do", open ? "close" : "open")
+        open = !open
+        // After variable overwrite
+        if(open) claw.addClass("open").text("open").removeClass("closed")
+        else claw.removeClass("open").text("closed").addClass("closed")
+    }
+
+    var holdspace = false
+
+    $(document).on('keydown', function(e){
+        if(e.keyCode == 32 && !holdspace){
+            holdspace = true
+            return toggleClaw()
+        }
+        var direction = keycodes[e.keyCode]
+        if(!direction || busy) return
+        busy = true
+        console.log(direction)
+        socket.emit("do", direction)
+        $("."+direction).addClass("active")
+    })
+    $(document).on('keyup', function(e){
+        holdspace = busy = false
+        console.log("stop")
+        socket.emit("do", "stop")
+        $(".active").removeClass("active")
+    })
+
+
+</script> 
